@@ -1,0 +1,113 @@
+---
+title: "Visual Analysis"
+author: "Valentin Arbenz & Matthias Wenger"
+date: "13th May 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+library(ggplot2)
+library(tidyr)
+library(quantmod)
+library(PerformanceAnalytics)
+library(gridExtra)
+library(lmtest)
+library(tseries)
+```
+
+Load data from yahoo:
+
+```{r}
+df_smi <- NULL
+tickers_index <- c("^SSMI")
+
+for (Ticker in tickers_index){
+  df_smi <- cbind(df_smi,
+                getSymbols.yahoo(Ticker, from="2000-01-01", periodicity = "monthly",
+                                 auto.assign=FALSE)[,6])
+}
+
+df_smi <- data.frame(df_smi)
+df_smi$Value <- df_smi$SSMI.Adjusted
+df_smi$SSMI.Adjusted <- NULL
+df_smi$INDICATOR <-'SMI'
+df_smi$LOCATION <- 'CHE'
+df_smi <- cbind(year_month = rownames(df_smi), df_smi)
+rownames(df_smi) <- 1:nrow(df_smi)
+df_smi$year_month <-as.Date(paste(df_smi$year_month,"-01",sep=""))
+```
+
+Read CSV. - files:
+
+```{r}
+df_m2 <- read.csv('m2.csv', sep = ';')
+df_int <- read.csv('interest_saron.csv', sep = ';')
+```
+
+Fix datetime structure:
+
+```{r}
+df_m2$year_month <-as.Date(paste(df_m2$ï..year_month,"-01",sep=""))
+df_m2$LOCATION <- 'CHE'
+
+df_int$year_month <-as.Date(paste(df_int$ï..year_month,"-01",sep=""))
+df_int$LOCATION <- 'CHE'
+```
+
+Transformation into ts.objects:
+
+```{r}
+# Transformation into time series class ("ts")
+money_supply<-ts(df_m2[df_m2$INDICATOR=='M2_ABSOLUTE',]$Value, start = 2000, frequency = 12)
+interest_rate<-ts(df_int$Value, start = 2000, frequency = 12)
+SMI<-ts(df_smi$Value, start = 2000, frequency = 12)
+```
+
+M2 decomposition:
+
+```{r}
+# Decomposing Money Supply
+money_supply_decomposed<-decompose(money_supply)
+plot(money_supply_decomposed, xlab="Year")
+money_supply_random<-money_supply_decomposed$random
+```
+
+SARON decomposition:
+
+```{r}
+# Decomposing Interest Rate
+interest_rate_decomposed<-decompose(interest_rate)
+plot(interest_rate_decomposed, xlab="Year")
+interest_rate_random<-interest_rate_decomposed$random
+```
+SMI decomposition:
+
+```{r}
+# Decomposing SMI
+SMI_decomposed<-decompose(SMI)
+plot(SMI_decomposed, xlab="Year")
+SMI_random<-SMI_decomposed$random
+```
+Overlap Random decompositions:
+
+```{r}
+## intersection (only overlapping times)
+dat_int <- ts.intersect(money_supply_random, interest_rate_random, SMI_random)
+
+## plot the ts
+plot(dat_int, main = "Overview ¦ TS-Decompositions: Random", yax.flip = TRUE)
+
+```
+
+Visual inspection ¦ Cross-referenced with the Swiss National Bank website:
+
+```{r}
+# money supply random analysis
+money_supply_random
+```
+
+
